@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Aamir Ahmed",
+    "age": 21,
+    "sex": "m",
+    "address": "Dhapakhel, Lalitpur, Nepal",
+    "email": "aamir.ahmed.py@gmail.com"
+  },
+  {
+    "name": "Samyak Ratna Bajracharya",
+    "age": 19,
+    "sex": "m",
+    "address": "Soyambu, Kathmandu, Nepal",
+    "email": "samyak.bajra19@mail.com"
+  },
+  {
+    "name": "Shraddha Shrestha",
+    "age": 20,
+    "sex": "f",
+    "address": "Kalanki, Kathmandu, Nepal",
+    "email": "shraddha.shrestha20@email.com"
+  },
+  {
+    "name": "Abhishek Acharya",
+    "age": 22,
+    "sex": "m",
+    "address": "Jawalakhel, Lalitpur, Nepal",
+    "email": "abhishek.hunter22@inbox.com"
+  },
+  {
+    "name": "Kenji Sato",
+    "age": 29,
+    "sex": "m",
+    "address": "Shibuya, Tokyo, Japan",
+    "email": "kenji.sato29@tokyo.jp"
+  },
+  {
+    "name": "Emily Zhang",
+    "age": 25,
+    "sex": "f",
+    "address": "Chaoyang, Beijing, China",
+    "email": "emily.zhang25@china.cn"
+  },
+  {
+    "name": "Michael Smith",
+    "age": 32,
+    "sex": "m",
+    "address": "Brooklyn, New York, USA",
+    "email": "michael.smith32@usa.com"
+  }
+]

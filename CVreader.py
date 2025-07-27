@@ -1,250 +1,165 @@
-#import the necesscary libraries
-import regex
 import re
 import spacy
 import os
 import json
-from datetime import datetime
 import pdfplumber
 import docx
 from collections import defaultdict
+import sys
 
-nlp = spacy.load("en_core_web_sm")#loads the english model for spaCy
-#predefined lists of skills and keywords
-TECH_SKILLS = ['python', 'java', 'c++', 'javascript', 'html', 'css', 'sql', 'machine learning',
-    'data analysis', 'pandas', 'numpy', 'django', 'flask', 'react', 'angular',
-    'aws', 'docker', 'kubernetes', 'git', 'linux', 'big data', 'tensorflow',
-    'pytorch', 'scikit-learn', 'nosql', 'mongodb', 'postgresql', 'mysql']
+# Load NLP model
+nlp = spacy.load("en_core_web_sm")
 
-EDUCATION_KEYWORDS = ['university', 'college', 'institute', 'school', 'degree', 'bachelor', 
-    'master', 'phd', 'diploma', 'education', 'graduated', 'coursework', 'certification',
-    'training', 'online course', 'certificate', 'diploma program', 'associate degree',]
+# Load config from JSON files
+def load_config():
+    try:
+        with open("config/patterns.json", "r") as f:
+            patterns = json.load(f)
+        with open("config/skills_keywords.json", "r") as f:
+            skills_keywords = json.load(f)
+        return patterns, skills_keywords
+    except FileNotFoundError as e:
+        print(f"Error: Config file missing - {e}")
+        sys.exit(1)
 
-SOFT_SKILLS = ['communication', 'teamwork', 'leadership', 'problem solving', 'creativity',
-    'time management', 'adaptability', 'critical thinking', 'collaboration',
-    'emotional intelligence']
-EXPERIENCE_KEYWORDS = [
-    'experience', 'worked', 'employed', 'job', 'position', 'role', 
-    'responsibilities', 'duties', 'internship', 'freelance'
-]
-def extract_text_from_pdf(file_path):
-    #Extract text from a PDF file.
-    text = ""
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            text += page.extract_text() + "\n"
-    return text
-def extract_text_from_docx(file_path):
-    #Extract text from a DOCX file.
-    doc = docx.Document(file_path)
-    text = ""
-    for para in doc.paragraphs:
-        text += para.text + "\n"
-    return text
+PATTERNS, SKILLS_KEYWORDS = load_config()
+
+# File processing
+def extract_text(file_path):
+    if file_path.lower().endswith('.pdf'):
+        with pdfplumber.open(file_path) as pdf:
+            return "\n".join(page.extract_text() for page in pdf.pages)
+    elif file_path.lower().endswith('.docx'):
+        doc = docx.Document(file_path)
+        return "\n".join(para.text for para in doc.paragraphs)
+    else:
+        raise ValueError("Unsupported file format. Use PDF or DOCX.")
+
+# Information extraction
 def extract_contact_info(text):
-    #extracts contact info
     doc = nlp(text)
-    contact_info = {
-        'full_name': None,
-        'address' : None,
-        'email': None,
-        'age': None,
-        'gender': None,
-    }
-    #name extraction using SpaCy for entity recognition
+    contact_info = {field: None for field in ['full_name', 'address', 'email', 'age', 'gender']}
+    
+    # Name extraction
     for ent in doc.ents:
         if ent.label_ == 'PERSON' and not contact_info['full_name']:
-            # Check if the name is likely a full name (contains at least two words)
             contact_info['full_name'] = ent.text
-            break # Stop after finding the first full name
+            break
 
-    # Extract address
-    address_pattern = r'\d{1,5}\s\w+\s\w+,\s\w+,\s\w+\s\d{5}'
-    address_match = re.search(address_pattern, text)
-    if address_match:
-        contact_info['address'] = address_match.group(0)
-    else:
-        # Fallback to SpaCy for address extraction
-        for ent in doc.ents:
-            if ent.label_ == 'GPE' and not contact_info['address']:
-                contact_info['address'] = ent.text
-                break
-    # Extract email
-    email_pattern = r'[a-zA-Z0-9._%+-]+@[a  -zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-    email_match = re.search(email_pattern, text)
-    if email_match:
-        contact_info['email'] = email_match.group(0)
-    # Extract age
-    age_pattern = r'\b(?:Age|Born|Birth\s*Date|D\.O\.B\.?|Date\s*of\s*Birth)\s*[:\-]?\s*(\d{1,3}|(?:\d{1,2}/\d{1,2}/\d{2,4}))\b'
-    age_match = re.search(age_pattern, text, re.IGNORECASE)
-    if age_match:
-        contact_info['age'] = age_match.group(1)
-    # Extract Gender
-    gender_pattern = r'\b(?:Gender|Sex)\s*[:\-]?\s*(\w+)\b'
-    gender_match = re.search(gender_pattern, text, re.IGNORECASE)
-    if gender_match:
-        contact_info['gender'] = gender_match.group(1)
+    # Address extraction
+    address_match = re.search(PATTERNS['address'], text)
+    contact_info['address'] = address_match.group(0) if address_match else None
+
+    # Email extraction
+    email_match = re.search(PATTERNS['email'], text)
+    contact_info['email'] = email_match.group(0) if email_match else None
+
+    # Age extraction
+    age_match = re.search(PATTERNS['age'], text, re.IGNORECASE)
+    contact_info['age'] = age_match.group(1) if age_match else None
+
+    # Gender extraction
+    gender_match = re.search(PATTERNS['gender'], text, re.IGNORECASE)
+    contact_info['gender'] = gender_match.group(1) if gender_match else None
+
     return contact_info
 
-#function to extract education
-def extract_education(text):
+def extract_section(text, keywords):
     doc = nlp(text)
-    education = []
-    
-    for sent in doc.sents:
-        if any(keyword in sent.text.lower() for keyword in EDUCATION_KEYWORDS):
-            clean_text = ' '.join(sent.text.split())
-            education.append(clean_text)
-    return education
-#function to extract experience
-def extract_experience(text):
-    doc = nlp(text)
-    experience = []
+    return [
+        ' '.join(sent.text.split()) 
+        for sent in doc.sents 
+        if any(kw in sent.text.lower() for kw in keywords)
+    ]
 
-    for sent in doc.sents:
-        if any(keyword in sent.text.lower() for keyword in EXPERIENCE_KEYWORDS):
-            clean_text = ' '.join(sent.text.split())
-            experience.append(clean_text)
-    return experience
-#function to extract skills
 def extract_skills(text):
     doc = nlp(text)
-    skills = {
-        'technical': set(),
-        'soft': set()
-    }
+    skills = defaultdict(set)
     
     for chunk in doc.noun_chunks:
         chunk_text = chunk.text.lower()
-        for skill in TECH_SKILLS:
-            if skill in chunk_text and len(skill) > 2:
-                skills['technical'].add(skill)
-        for skill in SOFT_SKILLS:
-            if skill in chunk_text and len(skill) > 2:
-                skills['soft'].add(skill)
+        for category, skill_list in SKILLS_KEYWORDS['skills'].items():
+            for skill in skill_list:
+                if skill.lower() in chunk_text:
+                    skills[category].add(skill)
     
-    for token in doc:
-        token_text = token.text.lower()
-        for skill in TECH_SKILLS:
-            if skill == token_text:
-                skills['technical'].add(skill)
-        for skill in SOFT_SKILLS:
-            if skill == token_text:
-                skills['soft'].add(skill)
-    
-    skills['technical'] = list(skills['technical'])
-    skills['soft'] = list(skills['soft'])
-    
-    return skills
-#function to extract experience years
-def calculate_experience_years(text):
-    doc = nlp(text)
-    years = []
-    
-    year_pattern = r'\b(19|20)\d{2}\b'
-    years = [int(year) for year in re.findall(year_pattern, text)]
-    
-    if len(years) >= 2:
-        min_year = min(years)
-        max_year = max(years)
-        return max_year - min_year
-    return 0
-#save to JSON
-def save_to_json(contact_info):
-    json_file = "individuals.json"
-    data = []
-    
-    # Read existing data if file exists
-    if os.path.exists(json_file):
-        try:
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-        except json.JSONDecodeError:
-            data = []
-    
-    # Append new entry
-    data.append(contact_info)
-    
-    # Write back to file
-    with open(json_file, 'w') as f:
-        json.dump(data, f, indent=4)
-def evaluate_cv(cv_text):
-    contact_info = extract_contact_info(cv_text)
-    
-    # Save the required fields to JSON
-    save_to_json({
-        'full_name': contact_info['full_name'],
-        'address': contact_info['address'],
-        'age': contact_info['age'],
-        'gender': contact_info['gender'],
-        'email': contact_info['email']
-    })
-    
+    return {k: list(v) for k, v in skills.items()}
+
+def calculate_experience(text):
+    years = [int(year) for year in re.findall(PATTERNS['year'], text)]
+    return max(years) - min(years) if len(years) >= 2 else 0
+
+# Scoring and output
+def evaluate_cv(text):
+    contact_info = extract_contact_info(text)
     report = {
         'contact_info': contact_info,
-        'education': extract_education(cv_text),
-        'experience': extract_experience(cv_text),
-        'skills': extract_skills(cv_text),
-        'experience_years': calculate_experience_years(cv_text),
+        'education': extract_section(text, SKILLS_KEYWORDS['education']),
+        'experience': extract_section(text, SKILLS_KEYWORDS['experience']),
+        'skills': extract_skills(text),
+        'experience_years': calculate_experience(text),
         'score': 0
     }
     
-    score = 0
-    score += len(report['education']) * 5
-    score += len(report['experience']) * 3
-    score += report['experience_years'] * 2
-    score += len(report['skills']['technical']) * 2
-    score += len(report['skills']['soft']) * Amber
-    report['score'] = min(100, score)
+    # Calculate score
+    weights = {
+        'education': 5,
+        'experience': 3,
+        'experience_years': 2,
+        'technical': 2,
+        'soft': 1
+    }
+    report['score'] = min(100, 
+        len(report['education']) * weights['education'] +
+        len(report['experience']) * weights['experience'] +
+        report['experience_years'] * weights['experience_years'] +
+        len(report['skills'].get('technical', [])) * weights['technical'] +
+        len(report['skills'].get('soft', [])) * weights['soft']
+    )
     
     return report
-def print_report(report):
-    print("\nCV Evaluation Report")
-    print("===================")
-    
-    print("\nContact Information:")
-    for key, value in report['contact_info'].items():
-        print(f"{key.capitalize()}: {value or 'Not found'}")
-    
-    print("\nEducation:")
-    for edu in report['education']:
-        print(f"- {edu}")
-    
-    print("\nExperience:")
-    for exp in report['experience']:
-        print(f"- {exp}")
-    
-    print("\nTechnical Skills:")
-    for skill in report['skills']['technical']:
-        print(f"- {skill.capitalize()}")
-    
-    print("\nSoft Skills:")
-    for skill in report['skills']['soft']:
-        print(f"- {skill.capitalize()}")
-    
-    print(f"\nEstimated Years of Experience: {report['experience_years']}")
-    print(f"\nOverall CV Score: {report['score']}/100")
 
-def process_cv(file_path):
-    if file_path.lower().endswith('.pdf'):
-        text = extract_text_from_pdf(file_path)
-    elif file_path.lower().endswith('.docx'):
-        text = extract_text_from_docx(file_path)
-    else:
-        raise ValueError("Unsupported file format. Please provide a PDF or DOCX file.")
+def save_to_json(data):
+    os.makedirs("output", exist_ok=True)
+    output_file = "output/individuals.json"
     
+    existing_data = []
+    if os.path.exists(output_file):
+        with open(output_file, "r") as f:
+            existing_data = json.load(f)
+    
+    existing_data.append(data)
+    with open(output_file, "w") as f:
+        json.dump(existing_data, f, indent=2)
+
+def print_report(report):
+    print("\nCV Evaluation Report".center(50, '='))
+    for section, content in report.items():
+        if isinstance(content, dict):
+            print(f"\n{section.replace('_', ' ').title()}:")
+            for k, v in content.items():
+                print(f"{k.replace('_', ' ').title()}: {v or 'N/A'}")
+        elif isinstance(content, list):
+            print(f"\n{section.title()}:")
+            for item in content:
+                print(f"- {item}")
+        else:
+            print(f"{section.title()}: {content}")
+
+# Main workflow
+def process_cv(file_path):
+    text = extract_text(file_path)
     report = evaluate_cv(text)
+    save_to_json(report['contact_info'])
     print_report(report)
 
 if __name__ == "__main__":
-    import sys
-    
     if len(sys.argv) != 2:
         print("Usage: python cv_evaluator.py <path_to_cv>")
         sys.exit(1)
     
-    cv_path = sys.argv[1]
     try:
-        process_cv(cv_path)
+        process_cv(sys.argv[1])
     except Exception as e:
-        print(f"Error processing CV: {e}")
+        print(f"Error: {str(e)}")
+        sys.exit(1)

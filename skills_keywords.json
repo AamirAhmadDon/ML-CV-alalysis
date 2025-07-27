@@ -1,0 +1,39 @@
+{
+  "patterns": {
+    "gender": "^(male|female|non-binary|other)$",
+    "email": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+  },
+  "tech_skills": {
+    "programming_languages": ["Python", "Java", "JavaScript", "C++", "Rust", "Go"],
+    "web_development": ["HTML", "CSS", "React", "Angular", "Vue", "Django", "Flask"],
+    "data_science": ["Pandas", "NumPy", "TensorFlow", "PyTorch", "Scikit-learn"],
+    "devops": ["Docker", "Kubernetes", "AWS", "Azure", "CI/CD"],
+    "databases": ["SQL", "PostgreSQL", "MongoDB", "Redis"]
+  },
+  "keywords": {
+    "ai_ml": ["machine learning", "deep learning", "neural networks", "NLP", "LLM"],
+    "cloud": ["cloud computing", "serverless", "microservices", "scalability"],
+    "soft_skills": ["teamwork", "communication", "problem-solving", "leadership"]
+  },
+  "resume": {
+    "education": [
+      "university", "college", "degree", 
+      "bachelor", "master", "phd", 
+      "diploma", "graduated", "certification"
+    ],
+    "experience": [
+      "experience", "worked", "employed",
+      "job", "position", "internship"
+    ],
+    "skills": {
+      "technical": [
+        "Python", "Java", "SQL",
+        "AWS", "Docker", "React"
+      ],
+      "soft": [
+        "communication", "teamwork",
+        "leadership", "problem solving"
+      ]
+    }
+  }
+}
